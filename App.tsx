@@ -1,117 +1,216 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
-
 import React from 'react';
-import type {PropsWithChildren} from 'react';
 import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
   StyleSheet,
-  Text,
-  useColorScheme,
+  SafeAreaView,
   View,
+  TextInput,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  Alert,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+const COLORS = {primary: '#1f145c', white: '#fff'};
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+const App = () => {
+  const [todos, setTodos] :any = React.useState([]);
+  const [textInput, setTextInput] = React.useState('');
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
+  React.useEffect(() => {
+    getTodosFromUserDevice();
+  }, []);
 
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
+  React.useEffect(() => {
+    saveTodoToUserDevice(todos);
+  }, [todos]);
 
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+  const addTodo = () => {
+    
+    if (textInput == '') {
+      Alert.alert('Error', 'Please input todo');
+    } else {
+      const newTodo = {
+        id: Math.random(),
+        task: textInput,
+        completed: false,
+      };
+      setTodos([...todos, newTodo]);
+      setTextInput('');
+    }
   };
 
-  return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
+  const saveTodoToUserDevice = async (todos:any) => {
+    try {
+      const stringifyTodos = JSON.stringify(todos);
+      await AsyncStorage.setItem('todos', stringifyTodos);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const getTodosFromUserDevice = async () => {
+    try {
+      const todos = await AsyncStorage.getItem('todos');
+      if (todos != null) {
+        setTodos(JSON.parse(todos));
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const markTodoComplete = (todoId:any) => {
+    const newTodosItem = todos.map((item:any) => {
+      if (item.id == todoId) {
+        return {...item, completed: true};
+      }
+      return item;
+    });
+
+    setTodos(newTodosItem);
+  };
+
+  const deleteTodo = (todoId:any) => {
+    const newTodosItem = todos.filter((item:any) => item.id != todoId);
+    setTodos(newTodosItem);
+  };
+
+  const clearAllTodos = () => {
+    Alert.alert('Confirm', 'Clear todos?', [
+      {
+        text: 'Yes',
+        onPress: () => setTodos([]),
+      },
+      {
+        text: 'No',
+      },
+    ]);
+  };
+
+  const ListItem = ({todo}:any) => {
+    return (
+      <View style={styles.listItem}>
+        <View style={{flex: 1}}>
+          <Text
+            style={{
+              fontWeight: 'bold',
+              fontSize: 15,
+              color: COLORS.primary,
+              textDecorationLine: todo?.completed ? 'line-through' : 'none',
+            }}>
+            {todo?.task}
+          </Text>
         </View>
-      </ScrollView>
+        {!todo?.completed && (
+          <TouchableOpacity onPress={() => markTodoComplete(todo.id)}>
+            <View style={[styles.actionIcon, {backgroundColor: 'green'}]}>
+              <Icon name="done" size={20} color="white" />
+            </View>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity onPress={() => deleteTodo(todo.id)}>
+          <View style={styles.actionIcon}>
+            <Icon name="delete" size={20} color="white" />
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+  return (
+    <SafeAreaView
+      style={{
+        flex: 1,
+        backgroundColor: 'white',
+      }}>
+      <View style={styles.header}>
+        <Text
+          style={{
+            fontWeight: 'bold',
+            fontSize: 20,
+            color: COLORS.primary,
+          }}>
+          TODO APP
+        </Text>
+        <Icon name="delete" size={25} color="red" onPress={clearAllTodos} />
+      </View>
+      <FlatList
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{padding: 20, paddingBottom: 100}}
+        data={todos}
+        renderItem={({item}) => <ListItem todo={item} />}
+      />
+
+      <View style={styles.footer}>
+        <View style={styles.inputContainer}>
+          <TextInput
+            value={textInput}
+            placeholder="Add Todo"
+            onChangeText={text => setTextInput(text)}
+          />
+        </View>
+        <TouchableOpacity onPress={addTodo}>
+          <View style={styles.iconContainer}>
+            <Icon name="add" color="white" size={30} />
+          </View>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    backgroundColor: COLORS.white,
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
+  inputContainer: {
+    height: 50,
+    paddingHorizontal: 20,
+    elevation: 40,
+    backgroundColor: COLORS.white,
+    flex: 1,
+    marginVertical: 20,
+    marginRight: 20,
+    borderRadius: 30,
   },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
+  iconContainer: {
+    height: 50,
+    width: 50,
+    backgroundColor: COLORS.primary,
+    elevation: 40,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  highlight: {
-    fontWeight: '700',
+
+  listItem: {
+    padding: 20,
+    backgroundColor: COLORS.white,
+    flexDirection: 'row',
+    elevation: 12,
+    borderRadius: 7,
+    marginVertical: 10,
+  },
+  actionIcon: {
+    height: 25,
+    width: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'red',
+    marginLeft: 5,
+    borderRadius: 3,
+  },
+  header: {
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
 });
 
